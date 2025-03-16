@@ -5,9 +5,9 @@ Discord.
 This script uses the GitHub API to fetch the latest commits from a specified
 repository.
 
-It checks for new commits every 5 minutes. If multiple commits have occurred
-since the last check, it sends all new commits in chronological order to a
-Discord webhook.
+It periodically checks for new commits using the specified intervanl (s). If
+multiple commits have occurred since the last check, it sends all new commits in
+chronological order to a Discord webhook.
 
 It requires the following environment variables:
 - GITHUB_API_URL: The URL to fetch the latest commits from the GitHub API.
@@ -130,7 +130,7 @@ def send_to_discord(commit):
     https://discord.com/developers/docs/resources/webhook#execute-webhook
     """
     embed = {
-        "title": commit["message"],
+        "title": f"{REPOSITORY_NAME} - {commit["message"]}",
         "url": commit["url"],
         "author": {"name": commit["author"]},
         "description": f"Commit: `{commit['id'][:7]}`",
