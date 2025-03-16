@@ -130,7 +130,7 @@ def send_to_discord(commit):
     https://discord.com/developers/docs/resources/webhook#execute-webhook
     """
     embed = {
-        "title": f"{REPOSITORY_NAME} - {commit["message"]}",
+        "title": f'{REPOSITORY_NAME} - {commit["message"]}',
         "url": commit["url"],
         "author": {"name": commit["author"]},
         "description": f"Commit: `{commit['id'][:7]}`",
