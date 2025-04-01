@@ -36,7 +36,7 @@ if not GITHUB_API_URL or not DISCORD_WEBHOOK_URL:
     sys.exit(1)
 
 
-def parse_repo_info(api_url):
+def parse_repo_info(api_url: str) -> tuple:
     """
     Parse repository owner and name from the API URL.
     """
@@ -63,7 +63,7 @@ if GITHUB_TOKEN:
 LAST_COMMITS_FILE = "last_commits.json"
 
 
-def get_avatar_url(commit):
+def get_avatar_url(commit: dict) -> str:
     """
     Fetch avatar URL. Fallback to Gravatar based on email if needed.
     """
@@ -83,7 +83,7 @@ def get_avatar_url(commit):
     return None
 
 
-def get_author_url(commit):
+def get_author_url(commit: dict) -> str:
     """
     Fetch author URL from commit data.
     """
@@ -94,9 +94,10 @@ def get_author_url(commit):
             commit["author"]["html_url"],
         )
         return commit["author"]["html_url"]
+    return None
 
 
-def get_branches():
+def get_branches() -> list:
     """
     Fetch list of branches.
     """
@@ -112,7 +113,7 @@ def get_branches():
     return response.json()
 
 
-def get_commits_for_branch(branch_name):
+def get_commits_for_branch(branch_name: str) -> list:
     """
     Fetch commits for a given branch.
     """
@@ -144,7 +145,7 @@ def get_commits_for_branch(branch_name):
     return commit_list
 
 
-def load_last_commits():
+def load_last_commits() -> dict:
     """
     Load last processed commit IDs per branch.
     """
@@ -154,7 +155,7 @@ def load_last_commits():
     return {}
 
 
-def save_last_commits(last_commits):
+def save_last_commits(last_commits: dict) -> None:
     """
     Save last processed commit IDs per branch.
     """
@@ -162,7 +163,7 @@ def save_last_commits(last_commits):
         json.dump(last_commits, f)
 
 
-def initialize_last_commits():
+def initialize_last_commits() -> None:
     """
     Initialize last commits for all branches.
     """
@@ -185,7 +186,7 @@ def initialize_last_commits():
         save_last_commits(last_commits)
 
 
-def send_aggregated_to_discord(commits, branch_name):
+def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
     """
     Send a single Discord message containing all new commits for a
     branch.
@@ -248,7 +249,7 @@ def send_aggregated_to_discord(commits, branch_name):
         )
 
 
-def monitor_feed():
+def monitor_feed() -> None:
     """
     Monitor commits across all branches and send one aggregated message
     per branch.
