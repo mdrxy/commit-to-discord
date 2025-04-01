@@ -230,11 +230,16 @@ def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
         lines.append(line)
     description = "\n".join(lines)
 
+    footer = {
+        "text": f"Powered by mdrxy/commit-to-discord",
+    }
+
     embed = {
         "title": title,
         "url": commit_url,
         "description": description,
         "author": embed_author,
+        "footer": footer,
     }
 
     payload = {"embeds": [embed]}
