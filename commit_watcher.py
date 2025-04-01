@@ -195,6 +195,12 @@ def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
     """
     count = len(commits)
     first_commit = commits[0]
+    logger.debug(
+        "Sending aggregated message to Discord for branch %s: %d new commits",
+        branch_name,
+        count,
+    )
+
     if count == 1:
         # For a single commit, use its direct URL.
         commit_url = first_commit["url"]
@@ -208,6 +214,8 @@ def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
     title = (
         f"[{REPO}:{branch_name}] {count} new {'commit' if count == 1 else 'commits'}"
     )
+
+    logger.debug("Commit data: `%s`", json.dumps(commits, indent=2))
 
     # Use the first commit's info for the embed author
     embed_author = {
@@ -231,7 +239,7 @@ def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
     description = "\n".join(lines)
 
     footer = {
-        "text": f"Powered by mdrxy/commit-to-discord",
+        "text": "Powered by mdrxy/commit-to-discord",
     }
 
     embed = {
