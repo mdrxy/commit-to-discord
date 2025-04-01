@@ -40,7 +40,8 @@ def parse_repo_info(api_url: str) -> tuple:
     """
     Parse repository owner and name from the API URL.
     """
-    # Expecting a URL like https://api.github.com/repos/<owner>/<repo>/commits
+    # Expecting a URL like:
+    # https://api.github.com/repos/<owner>/<repo>/commits
     parts = api_url.rstrip("/").split("/")
     if len(parts) >= 5:
         owner = parts[-3]
@@ -54,7 +55,8 @@ OWNER, REPO = parse_repo_info(GITHUB_API_URL)
 
 POLL_INTERVAL_SECONDS = float(os.getenv("POLL_INTERVAL_SECONDS", "120") or "120")
 # Defaults to 2 minutes
-# Note the API's rate limit is 60 requests per hour for unauthenticated requests
+# Note the API's rate limit is 60 requests per hour for unauthenticated
+# requests
 
 HEADERS = {"Accept": "application/vnd.github.v3+json"}
 if GITHUB_TOKEN:
@@ -193,11 +195,15 @@ def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
     """
     count = len(commits)
     first_commit = commits[0]
-    last_commit = commits[-1]
-    compare_url = (
-        f"https://github.com/{OWNER}/{REPO}/compare/"
-        f"{first_commit['id']}...{last_commit['id']}"
-    )
+    if count == 1:
+        # For a single commit, use its direct URL.
+        commit_url = first_commit["url"]
+    else:
+        last_commit = commits[-1]
+        commit_url = (
+            f"https://github.com/{OWNER}/{REPO}/compare/"
+            f"{first_commit['id']}...{last_commit['id']}"
+        )
 
     title = (
         f"[{REPO}:{branch_name}] {count} new {'commit' if count == 1 else 'commits'}"
@@ -210,7 +216,8 @@ def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
         "icon_url": first_commit["avatar_url"] or "",
     }
 
-    # Each line: commit hash (as a clickable link), then the commit message and author username
+    # Each line: commit hash (as a clickable link), then the commit
+    # message and author username
     lines = []
     for commit in commits:
         commit_link = f"[`{commit['id'][:7]}`]({commit['url']})"
@@ -225,7 +232,7 @@ def send_aggregated_to_discord(commits: dict, branch_name: str) -> None:
 
     embed = {
         "title": title,
-        "url": compare_url,
+        "url": commit_url,
         "description": description,
         "author": embed_author,
     }
