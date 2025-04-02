@@ -70,11 +70,6 @@ def get_avatar_url(commit: dict) -> str:
     Fetch avatar URL. Fallback to Gravatar based on email if needed.
     """
     if commit.get("author") and commit["author"].get("avatar_url"):
-        logger.debug(
-            "Using GitHub avatar for author `%s`: avatar_url=`%s`",
-            commit["author"]["login"],
-            commit["author"]["avatar_url"],
-        )
         return commit["author"]["avatar_url"]
     email = commit["commit"]["author"].get("email")
     if email:
@@ -277,6 +272,7 @@ def monitor_feed() -> None:
     logger.info("Starting commit monitoring...")
     last_commits = load_last_commits()
     while True:
+        logger.debug("Checking for new commits")
         branches = get_branches()
         for branch in branches:
             branch_name = branch.get("name")
@@ -305,8 +301,6 @@ def monitor_feed() -> None:
                 # Update the branch tracking with the newest commit.
                 last_commits[branch_name] = new_commits[-1]["id"]
                 save_last_commits(last_commits)
-            else:
-                logger.debug("No new commits on branch %s.", branch_name)
         time.sleep(POLL_INTERVAL_SECONDS)
 
 
