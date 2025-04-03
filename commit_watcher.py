@@ -84,13 +84,11 @@ def get_author_url(commit: dict) -> str:
     """
     Fetch author URL from commit data.
     """
-    if commit.get("author") and commit["author"].get("html_url"):
-        logger.debug(
-            "Using GitHub author URL for author `%s`: html_url=`%s`",
-            commit["author"]["login"],
-            commit["author"]["html_url"],
-        )
-        return commit["author"]["html_url"]
+    if commit.get("author_username"):
+        return "https://github.com/" + commit["author_username"]
+    logger.warning(
+        "No author username found for commit `%s`, no URL returned", commit["id"]
+    )
     return None
 
 
