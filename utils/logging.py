@@ -26,12 +26,17 @@ def configure_logging(logger_name="commit_to_discord"):
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, log_level, logging.INFO))
 
-    class EasternTimeFormatter(ColoredFormatter):
+    class EasternTimeFormatter(  # pylint: disable=too-few-public-methods
+        ColoredFormatter
+    ):
         """Custom log formatter to display timestamps in Eastern Time
         with colorized output"""
 
-        def formatTime(self, record, datefmt=None):
-            # Convert UTC to Eastern Time
+        def format_time(self, record):
+            """
+            Override the format_time method to convert UTC time to
+            Eastern Time.
+            """
             eastern = pytz.timezone("America/New_York")
             utc_dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
             eastern_dt = utc_dt.astimezone(eastern)

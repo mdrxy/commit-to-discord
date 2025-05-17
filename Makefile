@@ -22,9 +22,13 @@ build:
 start: run
 
 run: stop
-	$(DOCKER_TOOL) run -d --restart unless-stopped \
+	$(DOCKER_TOOL) run -d \
+		--restart unless-stopped \
 		--name $(CONTAINER_NAME) \
 		-e LOG_LEVEL=$(LOG_LEVEL) \
+		--log-driver json-file \
+		--log-opt max-size=5m \
+		--log-opt max-file=2 \
 		$(IMAGE_NAME)
 
 stop:
