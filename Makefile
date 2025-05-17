@@ -27,8 +27,8 @@ run: stop
 		--name $(CONTAINER_NAME) \
 		-e LOG_LEVEL=$(LOG_LEVEL) \
 		--log-driver json-file \
-		--log-opt max-size=5m \
-		--log-opt max-file=2 \
+		--log-opt max-size=30m \
+		--log-opt max-file=30 \
 		$(IMAGE_NAME)
 
 stop:
