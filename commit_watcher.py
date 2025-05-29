@@ -9,19 +9,22 @@ it to a configured Discord webhook. Tracks the last seen commit for
 each branch to prevent duplicate notifications.
 
 Author: Mason Daugherty <@mdrxy>
-Version: 2.0.0
-Last Modified: 2025-04-14
+Version: 2.1.0
+Last Modified: 2025-05-29
 
 Changelog:
     - 1.0.0 (2025-03-29): Initial release.
     - 2.0.0 (2025-04-14): Added support for multiple repositories.
+    - 2.1.0 (2025-05-29): Handle shutdown signals gracefully.
 """
 
 import hashlib
 import json
 import logging
 import os
+import signal
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -30,6 +33,20 @@ import requests
 from dotenv import load_dotenv
 
 from utils.logging import configure_logging
+
+shutdown_event = threading.Event()
+
+
+def handle_shutdown(_signum, _frame):
+    """
+    Gracefully handle shutdown signals (SIGTERM, SIGINT).
+    """
+    shutdown_event.set()
+    logger.info("Shutdown signal received, stopping monitor...")
+
+
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
 
 logging.root.handlers = []
 logger = configure_logging()
@@ -363,7 +380,7 @@ def monitor_feed() -> None:
     logger.info("Starting commit monitoring...")
     last_commits = load_last_commits()
 
-    while True:  # pylint: disable=too-many-nested-blocks
+    while not shutdown_event.is_set():  # pylint: disable=too-many-nested-blocks
         logger.debug("Checking for new commits")
         for repo in REPOSITORIES:
             repo_key = f"{repo.owner}/{repo.name}"
@@ -402,6 +419,10 @@ def monitor_feed() -> None:
                     save_last_commits(last_commits)
 
         time.sleep(POLL_INTERVAL_SECONDS)
+
+    # Clean shutdown: save state and exit
+    save_last_commits(last_commits)
+    logger.info("Commit watcher exited cleanly")
 
 
 if __name__ == "__main__":
