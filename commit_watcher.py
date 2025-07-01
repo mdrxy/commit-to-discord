@@ -18,6 +18,7 @@ Changelog:
     - 2.1.0 (2025-05-29): Handle shutdown signals gracefully.
 """
 
+import fnmatch
 import hashlib
 import json
 import logging
@@ -61,6 +62,8 @@ if not GITHUB_REPOS or not DISCORD_WEBHOOK_URL:
     logger.critical("Error: GITHUB_REPOS and DISCORD_WEBHOOK_URL must be set!")
     sys.exit(1)
 
+BRANCH_BLACKLIST = os.getenv("BRANCH_BLACKLIST", "").strip()
+
 
 @dataclass
 class Repository:
@@ -89,6 +92,64 @@ class Repository:
         owner, name = repo_string.split("/")
         api_url = f"https://api.github.com/repos/{owner}/{name}/commits"
         return cls(owner=owner, name=name, api_url=api_url)
+
+
+def parse_blacklist_patterns(blacklist_string: str) -> Dict[str, List[str]]:
+    """
+    Parse the branch blacklist string into a dictionary.
+
+    The blacklist string can contain global patterns or patterns specific
+    to a repository, in the format "owner/repo:pattern".
+
+    Parameters:
+    - blacklist_string (str): The comma-separated blacklist string.
+
+    Returns:
+    - Dict[str, List[str]]: A dictionary mapping repositories to their
+        blacklist patterns.
+    """
+    blacklist_patterns: Dict[str, List[str]] = {"global": []}
+    if not blacklist_string:
+        return blacklist_patterns
+
+    patterns = [p.strip() for p in blacklist_string.split(",")]
+    for pattern in patterns:
+        if ":" in pattern:
+            repo_key, branch_pattern = pattern.split(":", 1)
+            if repo_key not in blacklist_patterns:
+                blacklist_patterns[repo_key] = []
+            blacklist_patterns[repo_key].append(branch_pattern)
+        else:
+            blacklist_patterns["global"].append(pattern)
+
+    return blacklist_patterns
+
+
+def is_branch_blacklisted(
+    repo_key: str, branch_name: str, blacklist_patterns: Dict[str, List[str]]
+) -> bool:
+    """
+    Check if a branch is blacklisted.
+
+    Parameters:
+    - repo_key (str): The repository key (e.g., "owner/repo").
+    - branch_name (str): The name of the branch.
+    - blacklist_patterns (Dict[str, List[str]]): The blacklist patterns.
+
+    Returns:
+    - bool: True if the branch is blacklisted, False otherwise.
+    """
+    # Check for global blacklists
+    for pattern in blacklist_patterns.get("global", []):
+        if fnmatch.fnmatch(branch_name, pattern):
+            return True
+
+    # Check for repo-specific blacklists
+    for pattern in blacklist_patterns.get(repo_key, []):
+        if fnmatch.fnmatch(branch_name, pattern):
+            return True
+
+    return False
 
 
 # Parse repository configurations
@@ -379,6 +440,7 @@ def monitor_feed() -> None:
     """
     logger.info("Starting commit monitoring...")
     last_commits = load_last_commits()
+    blacklist_patterns = parse_blacklist_patterns(BRANCH_BLACKLIST)
 
     while not shutdown_event.is_set():  # pylint: disable=too-many-nested-blocks
         logger.debug("Checking for new commits")
@@ -390,6 +452,14 @@ def monitor_feed() -> None:
             branches = get_branches(repo)
             for branch in branches:
                 branch_name = branch["name"]
+                if is_branch_blacklisted(repo_key, branch_name, blacklist_patterns):
+                    logger.debug(
+                        "Branch %s in repo %s is blacklisted, skipping.",
+                        branch_name,
+                        repo_key,
+                    )
+                    continue
+
                 commits = get_commits_for_branch(repo, branch_name)
                 if not commits:
                     logger.warning(

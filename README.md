@@ -49,6 +49,11 @@ Monitors specified GitHub repositories for new commits across all branches and s
     * `POLL_INTERVAL_SECONDS` (Optional): How often (in seconds) to check for new commits.
         * Defaults to `120` (2 minutes).
         * Be mindful of GitHub API rate limits (60 requests/hour unauthenticated per IP, 5000/hour authenticated). The script makes one request per branch per repository during each poll.
+    * `BRANCH_BLACKLIST` (Optional): A comma-separated list of branch patterns to ignore.
+        * **Global patterns:** Apply to all repositories (e.g., `main,develop`).
+        * **Repository-specific patterns:** Apply to a single repository (e.g., `owner/repo:main,owner/repo:develop`).
+        * **Wildcards:** Supported for pattern matching (e.g., `release/*, feature-*`).
+        * Example: `dependabot/*,mdrxy/commit-to-discord:main` will ignore all `dependabot/` branches in every repository and the `main` branch in `mdrxy/commit-to-discord`.
 
 ## Usage (Docker)
 
