@@ -249,26 +249,8 @@ def get_commits_for_branch(repo: Repository, branch_name: str) -> List[dict]:
     - List[dict]: A list of commits in the branch.
     """
     url = f"https://api.github.com/repos/{repo.owner}/{repo.name}/commits?sha={branch_name}"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
-    except requests.exceptions.RequestException as e:
-        logger.error(
-            "Error fetching commits for %s/%s branch %s: `%s`",
-            repo.owner,
-            repo.name,
-            branch_name,
-            e,
-        )
-        return []
-    if response.status_code != 200:
-        logger.error(
-            "Error fetching commits for %s/%s branch %s: `%s`",
-            repo.owner,
-            repo.name,
-            branch_name,
-            response.text,
-        )
-        return []
+    response = requests.get(url, headers=HEADERS, timeout=10)
+    response.raise_for_status()
     commits = response.json()
     commit_list = []
     for commit in commits:
