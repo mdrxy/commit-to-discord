@@ -325,7 +325,7 @@ def initialize_last_commits() -> None:
 
 
 def send_aggregated_to_discord(  # pylint: disable=too-many-locals
-    commits: List[dict], repo: str, branch_name: str
+    commits: List[dict], repo: str, branch_name: str, old_commit_id: str
 ) -> None:
     """
     Send a single Discord message containing all new commits for a
@@ -335,6 +335,7 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
     - commits (List[dict]): A list of commit dictionaries.
     - repo (str): The repository name.
     - branch_name (str): The name of the branch.
+    - old_commit_id (str): The commit ID before the new commits.
     """
     count = len(commits)
     first_commit = commits[0]
@@ -352,7 +353,7 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         last_commit = commits[-1]
         commit_url = (
             f"https://github.com/{repo}/compare/"
-            f"{last_commit['id']}...{first_commit['id']}"
+            f"{old_commit_id}...{last_commit['id']}"
         )
 
     title = (
@@ -391,6 +392,7 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         "author": embed_author,
         "footer": footer,
     }
+
 
     payload = {"embeds": [embed]}
     headers = {"Content-Type": "application/json"}
@@ -465,7 +467,12 @@ def monitor_feed() -> None:
                         new_commits = commits[:index][::-1]
 
                 if new_commits:
-                    send_aggregated_to_discord(new_commits, repo_key, branch_name)
+                    send_aggregated_to_discord(
+                        new_commits,
+                        repo_key,
+                        branch_name,
+                        last_commits.get(repo_key, {}).get(branch_name, ""),
+                    )
                     # Update the branch tracking with the newest commit
                     last_commits[repo_key][branch_name] = new_commits[-1]["id"]
                     save_last_commits(last_commits)
