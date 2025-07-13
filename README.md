@@ -1,31 +1,28 @@
 # commit-to-discord
 
-[![GitHub last commit](https://img.shields.io/github/last-commit/mdrxy/commit-to-discord)](https://github.com/mdrxy/commit-to-discord/commits/main)
-
-Monitors specified GitHub repositories for new commits across all branches and sends detailed notifications to a Discord webhook. The notifications are designed to closely mirror Discord's native embed style for commit messages, providing a clean and familiar look.
+Monitors specified GitHub repositories for new commits and sends detailed notifications to a Discord webhook. The notifications are designed to mirror Discord's first-party GitHub embed style (achieved by appending `/github` to a Discord webhook from within GitHub).
 
 ## Key Features
 
-* **Multi-Repository & Multi-Branch Monitoring:** Keep track of commits across several repositories and all their active branches.
-* **Discord Embed-Style Notifications:** Delivers well-formatted messages to your Discord channel, similar to native GitHub integrations.
-* **Persistent Tracking:** Remembers the last notified commit for each branch to avoid duplicates, even after restarts (uses `last_commits.json`).
+* **Multi-Repository & Multi-Branch Monitoring:** Keep track of commits across several repositories and selected branches.
+* **Persistent Tracking:** Remembers the last notified commit for each branch to avoid duplicates, even after restarts (using `last_commits.json`).
 * **Configurable:** Set repository list, webhook URL, polling interval, and GitHub token via environment variables.
-* **Dockerized:** Easy to deploy and run using Docker, with `Makefile` support for common operations.
-* **GitHub API Token Support:** Use a GitHub Personal Access Token for higher API rate limits or to access private repositories.
+* **Containerized:** Easy to deploy and run using Docker or Podman, with `Makefile` targets for building, running, and management.
+* **GitHub API Token Support:** Use a [GitHub Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) for higher API rate limits or to access private repositories.
 
 ## Example Discord Notification
 
-![Example Discord Notification](/img/example.png)
+![Screenshot of an example Discord Notification using commit-to-discord](/img/example.png)
 
 ## Prerequisites
 
-* Docker (or Podman) installed.
-* A Discord Webhook URL.
+* [Docker](https://www.docker.com/) (or [Podman](https://podman.io/)) installed.
+* A [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) URL.
 * Repositories to monitor on GitHub.
 
 ## Setup & Configuration
 
-1. **Clone the repository (if you haven't already):**
+1. **Clone the repository**
 
     ```bash
     git clone https://github.com/mdrxy/commit-to-discord.git
@@ -33,31 +30,32 @@ Monitors specified GitHub repositories for new commits across all branches and s
     ```
 
 2. **Create an environment file:**
-    Copy the sample `.sample.env` to `.env` and customize it:
+    Copy `.sample.env` to `.env`:
 
     ```bash
     cp .sample.env .env
     ```
 
-3. **Edit `.env` with your settings:**
+3. **Fill in `.env` with your settings:**
 
     * `GITHUB_REPOS`: A comma-separated list of GitHub repositories to monitor.
-        * Format: `owner1/repo1,owner2/repo2`
-        * Example: `AzuraCast/AzuraCast,mdrxy/commit-to-discord`
+      * Format: `owner1/repo1,owner2/repo2`
+      * Example: `AzuraCast/AzuraCast,mdrxy/commit-to-discord`
     * `DISCORD_WEBHOOK_URL`: Your Discord channel's webhook URL.
     * `GITHUB_TOKEN` (Optional): Your GitHub Personal Access Token. Recommended for private repositories or to avoid rate limiting on public repositories with frequent checks.
     * `POLL_INTERVAL_SECONDS` (Optional): How often (in seconds) to check for new commits.
-        * Defaults to `120` (2 minutes).
-        * Be mindful of GitHub API rate limits (60 requests/hour unauthenticated per IP, 5000/hour authenticated). The script makes one request per branch per repository during each poll.
+      * Defaults to `120` (2 minutes).
+      * Be mindful of GitHub API rate limits (60 requests/hour unauthenticated per IP, 5000/hour authenticated). The script makes one request per branch per repository during each poll.
     * `BRANCH_BLACKLIST` (Optional): A comma-separated list of branch patterns to ignore.
-        * **Global patterns:** Apply to all repositories (e.g., `main,develop`).
-        * **Repository-specific patterns:** Apply to a single repository (e.g., `owner/repo:main,owner/repo:develop`).
-        * **Wildcards:** Supported for pattern matching (e.g., `release/*, feature-*`).
-        * Example: `dependabot/*,mdrxy/commit-to-discord:main` will ignore all `dependabot/` branches in every repository and the `main` branch in `mdrxy/commit-to-discord`.
+      * **Global patterns:** Apply to all repositories (e.g., `main,develop`).
+      * **Repository-specific patterns:** Apply to a single repository (e.g., `owner/repo:main,owner/repo:develop`).
+      * **Wildcards:** Supported for pattern matching (e.g., `release/*, feature-*`).
+      * Example: `dependabot/*,mdrxy/commit-to-discord:main` will ignore all `dependabot` branches in every repository and the `main` branch in `mdrxy/commit-to-discord`.
+    * `LOG_LEVEL` (Optional): Set the logging level (e.g., `DEBUG`, `INFO`, `WARNING`, `ERROR`). Defaults to `INFO`.
 
-## Usage (Docker)
+## Usage
 
-The provided `Makefile` simplifies Docker operations.
+The provided `Makefile` simplifies deployment operations. [(Install `make`)](https://www.gnu.org/software/make/)
 
 * **Build and Run (Recommended):**
 
@@ -68,21 +66,21 @@ The provided `Makefile` simplifies Docker operations.
     This will clean any previous instances, build the image, run the container in detached mode, and start following logs.
 
 * **Using Podman:**
-    If you prefer Podman, you can set the `DOCKER_TOOL` environment variable:
+    It's assumed you're using Docker, but if you prefer Podman, you can set the `DOCKER_TOOL` environment variable to `podman` to seamlessly switch containerization tools:
 
     ```bash
     DOCKER_TOOL=podman make
     ```
 
-### Manual Docker Commands
+### Manual Build Commands
 
-* **Build the Docker image:**
+* **Build the image:**
 
     ```bash
     docker build -t commit-to-discord-image .
     ```
 
-* **Run the Docker container:**
+* **Run the container:**
 
     ```bash
     docker run -d --restart unless-stopped \
@@ -105,24 +103,10 @@ The provided `Makefile` simplifies Docker operations.
 * `make logsf`: Follows the logs of the running container.
 * `make exec`: Attaches a shell to the running container for debugging.
 
-## How It Works
-
-The `commit_watcher.py` script performs the following steps:
-
-1. Loads configuration from environment variables.
-2. Initializes by fetching the latest commit for each branch of the specified repositories if `last_commits.json` is empty or a repo/branch is new.
-3. Enters a loop, polling at the defined `POLL_INTERVAL_SECONDS`:
-    a.  For each repository, it fetches all branches.
-    b.  For each branch, it fetches the latest commits.
-    c.  It compares these commits against the last known commit ID stored for that repository and branch (from `last_commits.json`).
-    d.  If new commits are found, they are formatted into an embed.
-    e.  A single Discord message is sent containing all new commits for that branch, with a title indicating the number of new commits and linking to a comparison view if multiple commits are new.
-    f.  The `last_commits.json` file is updated with the newest commit ID for that branch.
-
 ## Logging
 
 Log level can be controlled via the `LOG_LEVEL` environment variable (e.g., `INFO`, `DEBUG`, `WARNING`). Logs are output in color to the console (Docker logs) with timestamps in Eastern Time.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request or open an Issue.
+Contributions are welcome! Please feel free to submit a pull request or open an issue for any bugs or feature requests. I'll do my best to address them promptly.
