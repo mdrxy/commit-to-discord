@@ -2,26 +2,31 @@ IMAGE_NAME = commit-to-discord-image
 CONTAINER_NAME = commit-to-discord
 LOG_LEVEL= info
 
-# Default to Docker, allows for override to DOCKER_TOOL=podman
+# Default to Docker, allows for override using `DOCKER_TOOL=podman`
 DOCKER_TOOL ?= docker
 
 default: clean build run logsf
 
 q: clean build run
 
+# Enter the container's shell
 exec:
 	$(DOCKER_TOOL) exec -it $(CONTAINER_NAME) /bin/bash
 
+# Follow the container's logs
 logsf:
 	$(DOCKER_TOOL) logs -f $(CONTAINER_NAME)
 
+# Build the Docker image
 build:
 	@echo "Building $(IMAGE_NAME)..."
 	$(DOCKER_TOOL) build --quiet -t $(IMAGE_NAME) .
 
 start: run
 
+# Start the container (stopping it first if it's already running)
 run: stop
+	echo "Starting container..."; \
 	$(DOCKER_TOOL) run -d \
 		--restart unless-stopped \
 		--name $(CONTAINER_NAME) \
@@ -42,6 +47,7 @@ stop:
 		echo "No running container with name $(CONTAINER_NAME) found."; \
 	fi
 
+# Stop and remove the container, then prune the image from the system
 clean: stop
 	@IMAGE_ID=$$($(DOCKER_TOOL) images -q $(IMAGE_NAME)); \
 	if [ "$$IMAGE_ID" ]; then \
