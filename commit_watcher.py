@@ -430,6 +430,7 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         "description": description,
         "author": embed_author,
         "footer": footer,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     payload = {"embeds": [embed]}
