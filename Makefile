@@ -28,7 +28,7 @@ start: run
 
 # Start the container (stopping it first if it's already running)
 run: stop
-	echo "Starting container..."; \
+	@echo "Starting container..."; \
 	$(DOCKER_TOOL) run -d \
 		--restart unless-stopped \
 		--name $(CONTAINER_NAME) \
@@ -40,7 +40,7 @@ run: stop
 
 stop:
 	@echo "Checking if container $(CONTAINER_NAME) is running..."
-	@if [ "$$($(DOCKER_TOOL) ps -a -q -f name=$(CONTAINER_NAME))" != "" ]; then \
+	@if [ "$$($(DOCKER_TOOL) ps -a -q -f name=$(CONTAINER_NAME))" ]; then \
 		echo "Stopping $(CONTAINER_NAME)..."; \
 		$(DOCKER_TOOL) stop $(CONTAINER_NAME) > /dev/null; \
 		echo "Removing the container $(CONTAINER_NAME)..."; \
@@ -51,12 +51,12 @@ stop:
 
 # Stop and remove the container, then prune the image from the system
 clean: stop
-	@IMAGE_ID=$($(DOCKER_TOOL) images -q $(IMAGE_NAME)); 
-	if [ "$IMAGE_ID" ]; then 
-		echo "Removing image $(IMAGE_NAME) with ID $IMAGE_ID..."; 
-		$(DOCKER_TOOL) rmi $IMAGE_ID > /dev/null; 
-	else 
-		echo "No image found with name $(IMAGE_NAME)."; 
+	@IMAGE_ID=$$($(DOCKER_TOOL) images -q $(IMAGE_NAME)); \
+	if [ -n "$$IMAGE_ID" ]; then \
+		echo "Removing image $(IMAGE_NAME) with ID $$IMAGE_ID..."; \
+		$(DOCKER_TOOL) rmi $$IMAGE_ID > /dev/null; \
+	else \
+		echo "No image found with name $(IMAGE_NAME)."; \
 	fi
 
 # Linting and Formatting
