@@ -1,6 +1,4 @@
-"""
-Monitors GitHub repositories for new commits and sends Discord webhook
-notifications.
+"""Monitors GitHub repositories for new commits, sends Discord webhooks.
 
 Periodically checks specified GitHub repositories and their branches for
 new commits. When new commits are detected, it formats them into a
@@ -18,6 +16,8 @@ Changelog:
     - 2.1.0 (2025-05-29): Handle shutdown signals gracefully.
 """
 
+from __future__ import annotations
+
 import fnmatch
 import hashlib
 import json
@@ -28,19 +28,36 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
 import requests
 from dotenv import load_dotenv
 
 from utils.logging import configure_logging
 
+if TYPE_CHECKING:
+    from types import FrameType
+
 shutdown_event = threading.Event()
 
+STATUS_OK = 200
+STATUS_NO_CONTENT = 204
+MAX_MESSAGE_LENGTH = 55
+TRUNCATE_LENGTH = 52
 
-def handle_shutdown(_signum, _frame):
-    """
-    Gracefully handle shutdown signals (SIGTERM, SIGINT).
+
+def handle_shutdown(_signum: int, _frame: Optional[FrameType]) -> None:
+    """Gracefully handle shutdown signals (SIGTERM, SIGINT).
+
+    Parameters
+    ----------
+    _signum : int
+        The signal number.
+    _frame : Optional[FrameType]
+        The current stack frame.
+
     """
     shutdown_event.set()
     logger.info("Shutdown signal received, stopping monitor...")
@@ -67,13 +84,13 @@ BRANCH_BLACKLIST = os.getenv("BRANCH_BLACKLIST", "").strip()
 
 @dataclass
 class Repository:
-    """
-    Represents a GitHub repository.
+    """Represents a GitHub repository.
 
     Attributes:
     - owner (str): The owner of the repository.
     - name (str): The name of the repository.
     - api_url (str): The API URL for fetching commits.
+
     """
 
     owner: str
@@ -81,34 +98,38 @@ class Repository:
     api_url: str
 
     @classmethod
-    def from_repo_string(cls, repo_string: str) -> "Repository":
-        """
-        Create a Repository instance from owner/repo string.
+    def from_repo_string(cls, repo_string: str) -> Repository:
+        """Create a Repository instance from owner/repo string.
 
-        Parameters:
-        - repo_string (str): The repository string in the format
-            "owner/repo".
+        Parameters
+        ----------
+        repo_string : str
+            The repository string in the format "owner/repo".
+
         """
         owner, name = repo_string.split("/")
         api_url = f"https://api.github.com/repos/{owner}/{name}/commits"
         return cls(owner=owner, name=name, api_url=api_url)
 
 
-def parse_blacklist_patterns(blacklist_string: str) -> Dict[str, List[str]]:
-    """
-    Parse the branch blacklist string into a dictionary.
+def parse_blacklist_patterns(blacklist_string: str) -> dict[str, list[str]]:
+    """Parse the branch blacklist string into a dictionary.
 
     The blacklist string can contain global patterns or patterns specific
     to a repository, in the format "owner/repo:pattern".
 
-    Parameters:
-    - blacklist_string (str): The comma-separated blacklist string.
+    Parameters
+    ----------
+    blacklist_string : str
+        The comma-separated blacklist string.
 
-    Returns:
-    - Dict[str, List[str]]: A dictionary mapping repositories to their
-        blacklist patterns.
+    Returns
+    -------
+    dict[str, list[str]]
+        A dictionary mapping repositories to their blacklist patterns.
+
     """
-    blacklist_patterns: Dict[str, List[str]] = {"global": []}
+    blacklist_patterns: dict[str, list[str]] = {"global": []}
     if not blacklist_string:
         return blacklist_patterns
 
@@ -126,18 +147,26 @@ def parse_blacklist_patterns(blacklist_string: str) -> Dict[str, List[str]]:
 
 
 def is_branch_blacklisted(
-    repo_key: str, branch_name: str, blacklist_patterns: Dict[str, List[str]]
+    repo_key: str,
+    branch_name: str,
+    blacklist_patterns: dict[str, list[str]],
 ) -> bool:
-    """
-    Check if a branch is blacklisted.
+    """Check if a branch is blacklisted.
 
-    Parameters:
-    - repo_key (str): The repository key (e.g., "owner/repo").
-    - branch_name (str): The name of the branch.
-    - blacklist_patterns (Dict[str, List[str]]): The blacklist patterns.
+    Parameters
+    ----------
+    repo_key : str
+        The repository key (e.g., "owner/repo").
+    branch_name : str
+        The name of the branch.
+    blacklist_patterns : dict[str, list[str]]
+        The blacklist patterns.
 
-    Returns:
-    - bool: True if the branch is blacklisted, False otherwise.
+    Returns
+    -------
+    bool
+        True if the branch is blacklisted, False otherwise.
+
     """
     # Check for global blacklists
     for pattern in blacklist_patterns.get("global", []):
@@ -166,25 +195,33 @@ HEADERS = {"Accept": "application/vnd.github.v3+json"}
 if GITHUB_TOKEN:
     HEADERS["Authorization"] = f"token {GITHUB_TOKEN}"
 
-LAST_COMMITS_FILE = "last_commits.json"
+LAST_COMMITS_FILE = Path("last_commits.json")
 
 
 def get_avatar_url(commit: dict) -> Optional[str]:
     """
     Fetch avatar URL. Fallback to Gravatar based on email if needed.
 
-    Parameters:
-    - commit (dict): The commit data dictionary.
+    Parameters
+    ----------
+    commit : dict[str, Any]
+        The commit data dictionary.
 
-    Returns:
-    - str: The avatar URL or Gravatar URL.
+    Returns
+    -------
+    Optional[str]
+        The avatar URL or Gravatar URL.
+
     """
     if commit.get("author") and commit["author"].get("avatar_url"):
-        return commit["author"]["avatar_url"]
+        return str(commit["author"]["avatar_url"])
     email = commit["commit"]["author"].get("email")
     if email:
         email = email.strip().lower()
-        email_hash = hashlib.md5(email.encode("utf-8")).hexdigest()
+        email_hash = hashlib.md5(
+            email.encode("utf-8"),
+            usedforsecurity=False,
+        ).hexdigest()
         logger.debug("Using Gravatar for email `%s`: hash=`%s`", email, email_hash)
         return f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
     return None
@@ -194,39 +231,51 @@ def get_author_url(commit: dict) -> Optional[str]:
     """
     Fetch author URL from commit data.
 
-    Parameters:
-    - commit (dict): The commit data dictionary.
+    Parameters
+    ----------
+    commit : dict[str, Any]
+        The commit data dictionary.
 
-    Returns:
-    - str: The author URL or None if not found.
+    Returns
+    -------
+    Optional[str]
+        The author URL or None if not found.
+
     """
     if commit.get("author_username"):
-        return "https://github.com/" + commit["author_username"]
+        return str("https://github.com/" + commit["author_username"])
     logger.warning(
-        "No author username found for commit `%s`, no URL returned", commit["id"]
+        "No author username found for commit `%s`, no URL returned",
+        commit["id"],
     )
     return None
 
 
-def get_branches(repo: Repository) -> List[dict]:
-    """
-    Fetch list of branches for a repository.
+def get_branches(repo: Repository) -> list[dict[str, Any]]:
+    """Fetch list of branches for a repository.
 
-    Parameters:
-    - repo (Repository): The repository object.
+    Parameters
+    ----------
+    repo : Repository
+        The repository object.
 
-    Returns:
-    - List[dict]: A list of branches in the repository.
+    Returns
+    -------
+    list[dict[str, Any]]
+        A list of branches in the repository.
+
     """
     branches_url = f"https://api.github.com/repos/{repo.owner}/{repo.name}/branches"
     try:
         response = requests.get(branches_url, headers=HEADERS, timeout=10)
-    except requests.exceptions.RequestException as e:
-        logger.error(
-            "Error fetching branches for %s/%s: `%s`", repo.owner, repo.name, e
+    except requests.exceptions.RequestException:
+        logger.exception(
+            "Error fetching branches for %s/%s",
+            repo.owner,
+            repo.name,
         )
         return []
-    if response.status_code != 200:
+    if response.status_code != STATUS_OK:
         logger.error(
             "Error fetching branches for %s/%s: `%s`",
             repo.owner,
@@ -234,72 +283,82 @@ def get_branches(repo: Repository) -> List[dict]:
             response.text,
         )
         return []
-    return response.json()
+    branches: list[dict[str, Any]] = response.json()
+    return branches
 
 
-def get_commits_for_branch(repo: Repository, branch_name: str) -> List[dict]:
-    """
-    Fetch commits for a given branch in a repository.
+def get_commits_for_branch(
+    repo: Repository,
+    branch_name: str,
+) -> list[dict[str, Any]]:
+    """Fetch commits for a given branch in a repository.
 
-    Parameters:
-    - repo (Repository): The repository object.
-    - branch_name (str): The name of the branch.
+    Parameters
+    ----------
+    repo : Repository
+        The repository object.
+    branch_name : str
+        The name of the branch.
 
-    Returns:
-    - List[dict]: A list of commits in the branch.
+    Returns
+    -------
+    list[dict[str, Any]]
+        A list of commits in the branch.
+
     """
     url = f"https://api.github.com/repos/{repo.owner}/{repo.name}/commits?sha={branch_name}"
     response = requests.get(url, headers=HEADERS, timeout=10)
     response.raise_for_status()
     commits = response.json()
-    commit_list = []
-    for commit in commits:
-        commit_list.append(
-            {
-                "id": commit["sha"],
-                "message": commit["commit"]["message"],
-                "author_username": (
-                    commit["author"]["login"] if commit.get("author") else "unknown"
-                ),
-                "avatar_url": get_avatar_url(commit),
-                "url": commit["html_url"],
-                "repository": f"{repo.owner}/{repo.name}",
-                "branch": branch_name,
-            }
-        )
-    return commit_list
+    return [
+        {
+            "id": commit["sha"],
+            "message": commit["commit"]["message"],
+            "author_username": (
+                commit["author"]["login"] if commit.get("author") else "unknown"
+            ),
+            "avatar_url": get_avatar_url(commit),
+            "url": commit["html_url"],
+            "repository": f"{repo.owner}/{repo.name}",
+            "branch": branch_name,
+        }
+        for commit in commits
+    ]
 
 
-def load_last_commits() -> Dict[str, Dict[str, str]]:
-    """
-    Load last processed commit IDs per repository and branch.
+def load_last_commits() -> dict[str, dict[str, str]]:
+    """Load last processed commit IDs per repository and branch.
 
-    Returns:
-    - Dict[str, Dict[str, str]]: A dictionary mapping repository/branch
-        pairs to their last processed commit IDs.
+    Returns
+    -------
+    dict[str, dict[str, str]]
+        A dictionary mapping repository/branch pairs to their last
+        processed commit IDs.
+
     """
     try:
-        with open(LAST_COMMITS_FILE, "r", encoding="utf-8") as f:
+        with LAST_COMMITS_FILE.open(encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 
-def save_last_commits(last_commits: Dict[str, Dict[str, str]]) -> None:
-    """
-    Save last processed commit IDs per repository and branch.
+def save_last_commits(last_commits: dict[str, dict[str, str]]) -> None:
+    """Save last processed commit IDs per repository and branch.
 
-    Parameters:
-    - last_commits (Dict[str, Dict[str, str]]): A dictionary mapping
-        repository/branch pairs to their last processed commit IDs.
+    Parameters
+    ----------
+    last_commits : dict[str, dict[str, str]]
+        A dictionary mapping repository/branch pairs to their last
+        processed commit IDs.
+
     """
-    with open(LAST_COMMITS_FILE, "w", encoding="utf-8") as f:
+    with LAST_COMMITS_FILE.open("w", encoding="utf-8") as f:
         json.dump(last_commits, f, indent=2)
 
 
 def initialize_last_commits() -> None:
-    """
-    Initialize last commits for all repositories and their branches.
+    """Initialize last commits for all repositories and their branches.
 
     This function checks if the last commits file exists. If it doesn't,
     it creates a new file and populates it with the latest commit IDs
@@ -325,17 +384,24 @@ def initialize_last_commits() -> None:
 
 
 def send_aggregated_to_discord(  # pylint: disable=too-many-locals
-    commits: List[dict], repo: str, branch_name: str, old_commit_id: str
+    commits: list[dict[str, Any]],
+    repo: str,
+    branch_name: str,
+    old_commit_id: str,
 ) -> None:
-    """
-    Send a single Discord message containing all new commits for a
-    branch.
+    """Send a Discord message containing all new commits for a branch.
 
-    Parameters:
-    - commits (List[dict]): A list of commit dictionaries.
-    - repo (str): The repository name.
-    - branch_name (str): The name of the branch.
-    - old_commit_id (str): The commit ID before the new commits.
+    Parameters
+    ----------
+    commits : list[dict[str, Any]]
+        A list of commit dictionaries.
+    repo : str
+        The repository name.
+    branch_name : str
+        The name of the branch.
+    old_commit_id : str
+        The commit ID before the new commits.
+
     """
     count = len(commits)
     first_commit = commits[0]
@@ -352,8 +418,7 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
     else:
         last_commit = commits[-1]
         commit_url = (
-            f"https://github.com/{repo}/compare/"
-            f"{old_commit_id}...{last_commit['id']}"
+            f"https://github.com/{repo}/compare/{old_commit_id}...{last_commit['id']}"
         )
 
     title = (
@@ -374,8 +439,8 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         commit_link = f"[`{commit['id'][:7]}`]({commit['url']})"
         message = (
             commit["message"]
-            if len(commit["message"]) <= 55
-            else commit["message"][:52] + "..."
+            if len(commit["message"]) <= MAX_MESSAGE_LENGTH
+            else f"{commit['message'][:TRUNCATE_LENGTH]}..."
         )
         line = f"{commit_link} {message} - {commit['author_username']}"
         lines.append(line)
@@ -393,7 +458,6 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         "footer": footer,
     }
 
-
     payload = {"embeds": [embed]}
     headers = {"Content-Type": "application/json"}
     if not DISCORD_WEBHOOK_URL:
@@ -401,12 +465,15 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         return
     try:
         response = requests.post(
-            DISCORD_WEBHOOK_URL, json=payload, headers=headers, timeout=10
+            DISCORD_WEBHOOK_URL,
+            json=payload,
+            headers=headers,
+            timeout=10,
         )
-    except requests.exceptions.RequestException as e:
-        logger.error("Error posting aggregated message to Discord: `%s`", e)
+    except requests.exceptions.RequestException:
+        logger.exception("Error posting aggregated message to Discord")
         return
-    if response.status_code == 204:
+    if response.status_code == STATUS_NO_CONTENT:
         logger.info(
             "Aggregated commit message posted to Discord for %s branch %s",
             repo,
@@ -414,14 +481,13 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         )
     else:
         logger.error(
-            "Failed to post aggregated message to Discord: `%s`", response.text
+            "Failed to post aggregated message to Discord: `%s`",
+            response.text,
         )
 
 
-def monitor_feed() -> None:
-    """
-    Monitor commits across all repositories and branches.
-    """
+def monitor_feed() -> None:  # noqa: C901, PLR0912
+    """Monitor commits across all repositories and branches."""
     logger.info("Starting commit monitoring...")
     last_commits = load_last_commits()
     blacklist_patterns = parse_blacklist_patterns(BRANCH_BLACKLIST)
@@ -447,7 +513,9 @@ def monitor_feed() -> None:
                 commits = get_commits_for_branch(repo, branch_name)
                 if not commits:
                     logger.warning(
-                        "No commits returned for %s branch %s.", repo_key, branch_name
+                        "No commits returned for %s branch %s.",
+                        repo_key,
+                        branch_name,
                     )
                     continue
 
