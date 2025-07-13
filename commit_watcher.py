@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 import requests
 from dotenv import load_dotenv
@@ -39,6 +39,8 @@ from utils.logging import configure_logging
 
 if TYPE_CHECKING:
     from types import FrameType
+
+    from utils.types import Branch, Commit
 
 shutdown_event = threading.Event()
 
@@ -198,13 +200,12 @@ if GITHUB_TOKEN:
 LAST_COMMITS_FILE = Path("last_commits.json")
 
 
-def get_avatar_url(commit: dict) -> Optional[str]:
-    """
-    Fetch avatar URL. Fallback to Gravatar based on email if needed.
+def get_avatar_url(commit: Commit) -> Optional[str]:
+    """Fetch avatar URL. Fallback to Gravatar based on email if needed.
 
     Parameters
     ----------
-    commit : dict[str, Any]
+    commit : Commit
         The commit data dictionary.
 
     Returns
@@ -227,31 +228,7 @@ def get_avatar_url(commit: dict) -> Optional[str]:
     return None
 
 
-def get_author_url(commit: dict) -> Optional[str]:
-    """
-    Fetch author URL from commit data.
-
-    Parameters
-    ----------
-    commit : dict[str, Any]
-        The commit data dictionary.
-
-    Returns
-    -------
-    Optional[str]
-        The author URL or None if not found.
-
-    """
-    if commit.get("author_username"):
-        return str("https://github.com/" + commit["author_username"])
-    logger.warning(
-        "No author username found for commit `%s`, no URL returned",
-        commit["id"],
-    )
-    return None
-
-
-def get_branches(repo: Repository) -> list[dict[str, Any]]:
+def get_branches(repo: Repository) -> list[Branch]:
     """Fetch list of branches for a repository.
 
     Parameters
@@ -261,7 +238,7 @@ def get_branches(repo: Repository) -> list[dict[str, Any]]:
 
     Returns
     -------
-    list[dict[str, Any]]
+    list[Branch]
         A list of branches in the repository.
 
     """
@@ -283,14 +260,14 @@ def get_branches(repo: Repository) -> list[dict[str, Any]]:
             response.text,
         )
         return []
-    branches: list[dict[str, Any]] = response.json()
+    branches: list[Branch] = response.json()
     return branches
 
 
 def get_commits_for_branch(
     repo: Repository,
     branch_name: str,
-) -> list[dict[str, Any]]:
+) -> list[Commit]:
     """Fetch commits for a given branch in a repository.
 
     Parameters
@@ -302,28 +279,25 @@ def get_commits_for_branch(
 
     Returns
     -------
-    list[dict[str, Any]]
+    list[Commit]
         A list of commits in the branch.
 
     """
     url = f"https://api.github.com/repos/{repo.owner}/{repo.name}/commits?sha={branch_name}"
     response = requests.get(url, headers=HEADERS, timeout=10)
     response.raise_for_status()
-    commits = response.json()
-    return [
-        {
-            "id": commit["sha"],
-            "message": commit["commit"]["message"],
-            "author_username": (
-                commit["author"]["login"] if commit.get("author") else "unknown"
-            ),
-            "avatar_url": get_avatar_url(commit),
-            "url": commit["html_url"],
-            "repository": f"{repo.owner}/{repo.name}",
-            "branch": branch_name,
-        }
-        for commit in commits
-    ]
+    commits: list[Commit] = response.json()
+    for commit in commits:
+        commit["id"] = commit["sha"]
+        commit["message"] = commit["commit"]["message"]
+        commit["author_username"] = (
+            commit["author"]["login"] if commit.get("author") else "unknown"
+        )
+        commit["avatar_url"] = get_avatar_url(commit)
+        commit["url"] = commit["html_url"]
+        commit["repository"] = f"{repo.owner}/{repo.name}"
+        commit["branch"] = branch_name
+    return commits
 
 
 def load_last_commits() -> dict[str, dict[str, str]]:
@@ -338,7 +312,7 @@ def load_last_commits() -> dict[str, dict[str, str]]:
     """
     try:
         with LAST_COMMITS_FILE.open(encoding="utf-8") as f:
-            return json.load(f)
+            return cast("dict[str, dict[str, str]]", json.load(f))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
@@ -384,7 +358,7 @@ def initialize_last_commits() -> None:
 
 
 def send_aggregated_to_discord(  # pylint: disable=too-many-locals
-    commits: list[dict[str, Any]],
+    commits: list[Commit],
     repo: str,
     branch_name: str,
     old_commit_id: str,
@@ -393,7 +367,7 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
 
     Parameters
     ----------
-    commits : list[dict[str, Any]]
+    commits : list[Commit]
         A list of commit dictionaries.
     repo : str
         The repository name.
@@ -428,7 +402,7 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
     # Use the first commit's info for the embed author
     embed_author = {
         "name": first_commit["author_username"],
-        "url": get_author_url(first_commit) or "",
+        "url": first_commit["author"]["html_url"] or "",
         "icon_url": first_commit["avatar_url"] or "",
     }
 
