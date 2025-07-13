@@ -52,6 +52,7 @@ Monitors specified GitHub repositories for new commits and sends detailed notifi
       * **Wildcards:** Supported for pattern matching (e.g., `release/*, feature-*`).
       * Example: `dependabot/*,mdrxy/commit-to-discord:main` will ignore all `dependabot` branches in every repository and the `main` branch in `mdrxy/commit-to-discord`.
     * `LOG_LEVEL` (Optional): Set the logging level (e.g., `DEBUG`, `INFO`, `WARNING`, `ERROR`). Defaults to `INFO`.
+    * `LOG_TZ` (Optional): Set the timezone for log timestamps. Defaults to UTC.
 
 ## Usage
 

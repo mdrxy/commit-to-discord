@@ -1,21 +1,32 @@
-"""
-Logging module.
-"""
+"""Logging module."""
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytz
 from colorlog import ColoredFormatter
 
 log_level = os.getenv("LOG_LEVEL", "info").upper()
+log_tz_name = os.getenv("LOG_TZ", "UTC")
+try:
+    log_tz = pytz.timezone(log_tz_name)
+except pytz.UnknownTimeZoneError:
+    logger = logging.getLogger("commit_to_discord")
+    logger.warning("Unknown timezone `%s`, defaulting to `UTC`.", log_tz_name)
+    log_tz = pytz.utc
+
+LOG_COLORS = {
+    "DEBUG": "white",
+    "INFO": "green",
+    "WARNING": "yellow",
+    "ERROR": "red",
+    "CRITICAL": "bold_red",
+}
 
 
-def configure_logging(logger_name="commit_to_discord"):
-    """
-    Set up logging with colorized output and timestamps in Eastern Time.
-    """
+def configure_logging(logger_name: str = "commit_to_discord") -> logging.Logger:
+    """Set up logging with colorized output and a configurable timezone."""
     logger = logging.getLogger(logger_name)
     if logger.hasHandlers():
         # Avoid re-adding handlers if the logger is already configured
@@ -26,33 +37,26 @@ def configure_logging(logger_name="commit_to_discord"):
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, log_level, logging.INFO))
 
-    class EasternTimeFormatter(  # pylint: disable=too-few-public-methods
-        ColoredFormatter
+    class TimezoneFormatter(
+        ColoredFormatter,
     ):
-        """Custom log formatter to display timestamps in Eastern Time
-        with colorized output"""
+        """Custom log formatter to display timestamps in a specific timezone.
 
-        def format_time(self, record):
-            """
-            Override the format_time method to convert UTC time to
-            Eastern Time.
-            """
-            eastern = pytz.timezone("America/New_York")
-            utc_dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
-            eastern_dt = utc_dt.astimezone(eastern)
+        Uses colorized output.
+        """
+
+        def format_time(self, record: logging.LogRecord) -> str:
+            """Convert record time to the configured timezone."""
+            utc_dt = datetime.fromtimestamp(record.created, tz=pytz.utc)
+            local_dt = utc_dt.astimezone(log_tz)
             # Use ISO 8601 format
-            return eastern_dt.isoformat()
+            return local_dt.isoformat()
 
     # Define the formatter with color and PID
-    formatter = EasternTimeFormatter(
-        "%(log_color)s%(asctime)s - PID %(process)d - %(name)s - %(levelname)s - %(message)s",
-        log_colors={
-            "DEBUG": "white",
-            "INFO": "green",
-            "WARNING": "yellow",
-            "ERROR": "red",
-            "CRITICAL": "bold_red",
-        },
+    formatter = TimezoneFormatter(
+        "%(log_color)s%(asctime)s - PID %(process)d - %(name)s - %(levelname)s - "
+        "%(message)s",
+        log_colors=LOG_COLORS,
     )
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
