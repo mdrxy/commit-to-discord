@@ -52,11 +52,11 @@ stop:
 # Stop and remove the container, then prune the image from the system
 clean: stop
 	@IMAGE_ID=$($(DOCKER_TOOL) images -q $(IMAGE_NAME)); 
-	@if [ "$$IMAGE_ID" ]; then 
-		@echo "Removing image $(IMAGE_NAME) with ID $$IMAGE_ID..."; 
-		@$(DOCKER_TOOL) rmi $$IMAGE_ID > /dev/null; 
+	if [ "$IMAGE_ID" ]; then 
+		echo "Removing image $(IMAGE_NAME) with ID $IMAGE_ID..."; 
+		$(DOCKER_TOOL) rmi $IMAGE_ID > /dev/null; 
 	else 
-		@echo "No image found with name $(IMAGE_NAME)."; 
+		echo "No image found with name $(IMAGE_NAME)."; 
 	fi
 
 # Linting and Formatting
