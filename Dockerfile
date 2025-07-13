@@ -11,7 +11,7 @@ RUN apt-get update \
 # Install uv and project dependencies
 RUN pip install uv
 COPY pyproject.toml uv.lock ./
-RUN uv sync
+RUN uv pip install .
 
 COPY . .
 
