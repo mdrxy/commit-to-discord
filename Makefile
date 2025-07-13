@@ -1,3 +1,5 @@
+.PHONY: default q exec logsf build start run stop clean lint lint-fix format format-check
+
 IMAGE_NAME = commit-to-discord-image
 CONTAINER_NAME = commit-to-discord
 LOG_LEVEL= info
@@ -49,10 +51,26 @@ stop:
 
 # Stop and remove the container, then prune the image from the system
 clean: stop
-	@IMAGE_ID=$$($(DOCKER_TOOL) images -q $(IMAGE_NAME)); \
-	if [ "$$IMAGE_ID" ]; then \
-		echo "Removing image $(IMAGE_NAME) with ID $$IMAGE_ID..."; \
-		$(DOCKER_TOOL) rmi $$IMAGE_ID > /dev/null; \
-	else \
-		echo "No image found with name $(IMAGE_NAME)."; \
+	@IMAGE_ID=$($(DOCKER_TOOL) images -q $(IMAGE_NAME)); 
+	@if [ "$$IMAGE_ID" ]; then 
+		@echo "Removing image $(IMAGE_NAME) with ID $$IMAGE_ID..."; 
+		@$(DOCKER_TOOL) rmi $$IMAGE_ID > /dev/null; 
+	else 
+		@echo "No image found with name $(IMAGE_NAME)."; 
 	fi
+
+# Linting and Formatting
+lint:
+	ruff check .
+
+lint-fix:
+	ruff check . --fix
+
+lint-fix-unsafe:
+	ruff check . --fix --unsafe-fixes
+
+format:
+	ruff format .
+
+format-check:
+	ruff format . --check

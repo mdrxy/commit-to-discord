@@ -1,14 +1,17 @@
 FROM python:3.11-slim
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install uv and project dependencies
+RUN pip install uv
+COPY pyproject.toml uv.lock ./
+RUN uv sync
 
 COPY . . 
 
 # Install pgrep for healthcheck
-RUN apt-get update \
-    && apt-get install -y procps \
+RUN apt-get install -y procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Healthcheck to verify the commit_watcher process is running

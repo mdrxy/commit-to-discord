@@ -1,0 +1,35 @@
+[project]
+authors = [{ name = "Mason Daugherty", email = "github@mdrxy.com" }]
+license = { text = "GPL-3.0" }
+requires-python = ">=3.9"
+dependencies = [
+    "colorlog>=6.9.0",
+    "python-dotenv>=1.1.1",
+    "pytz>=2025.2",
+    "requests>=2.32.4",
+]
+name = "commit-to-discord"
+version = "0.0.1"
+description = "Watch GitHub repositories for commits and forward them to a Discord channel"
+readme = "README.md"
+
+[project.urls]
+repository = "https://github.com/mdrxy/commit-to-discord"
+
+[project.optional-dependencies]
+lint = ["ruff<0.13,>=0.12.2"]
+typing = [
+    "mypy<1.16,>=1.15",
+    "types-requests<3.0.0.0,>=2.28.11.5",
+    "types-pytz==2025.2.0.20250516",
+]
+
+[tool.mypy]
+strict = "True"
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [ "ALL",]
+ignore = ["UP045", "D213", "D203", "COM812"]
