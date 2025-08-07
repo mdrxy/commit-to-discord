@@ -108,6 +108,80 @@ The provided `Makefile` simplifies deployment operations. [(Install `make`)](htt
 
 Log level can be controlled via the `LOG_LEVEL` environment variable (e.g., `INFO`, `DEBUG`, `WARNING`). Logs are output in color to the console (Docker logs) with timestamps in Eastern Time.
 
+## Development
+
+### Local Development Setup
+
+For local development without Docker:
+
+1. **Install dependencies:**
+
+   ```bash
+   make setup-dev
+   ```
+
+   This installs all development dependencies and sets up pre-commit hooks.
+
+2. **Run quality checks:**
+
+   ```bash
+   make check-all    # Run linting, type checking, and format checking
+   make lint         # Run linting only
+   make typecheck    # Run type checking only
+   make format       # Format code
+   ```
+
+3. **Run the application locally:**
+
+   ```bash
+   # Copy and configure environment
+   cp .sample.env .env
+   # Edit .env with your settings
+   
+   # Run the application
+   uv run python commit_watcher.py
+   ```
+
+### Available Make Targets
+
+**Development:**
+
+* `make setup-dev`: Install dev dependencies and set up pre-commit
+* `make install-dev`: Install development dependencies only
+* `make check-all`: Run all quality checks
+
+**Code Quality:**
+
+* `make lint`: Check code with ruff
+* `make lint-fix`: Fix linting issues automatically
+* `make format`: Format code with ruff
+* `make format-check`: Check if code is properly formatted
+* `make typecheck`: Run mypy type checking
+
+**Pre-commit:**
+
+* `make pre-commit-install`: Install pre-commit hooks
+* `make pre-commit-run`: Run pre-commit on all files
+
+**Docker (existing):**
+
+* `make`: Full build and run workflow
+* `make build`: Build Docker image
+* `make run`: Run container
+* `make stop`: Stop container
+* `make clean`: Remove container and image
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue for any bugs or feature requests. I'll do my best to address them promptly.
+
+### Development Workflow
+
+1. Fork the repository
+2. Run `make setup-dev` to set up your development environment
+3. Make your changes
+4. Run `make check-all` to ensure code quality
+5. Commit your changes (pre-commit hooks will run automatically)
+6. Push and create a pull request
+
+The CI pipeline will automatically run linting, type checking, security checks, and Docker build tests on all pull requests.
