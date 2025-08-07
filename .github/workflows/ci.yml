@@ -32,15 +32,15 @@ jobs:
 
       - name: Run ruff linting
         run: |
-          uv run ruff check .
+          uv run --group lint ruff check .
 
       - name: Run ruff formatting check
         run: |
-          uv run ruff format --check .
+          uv run --group lint ruff format --check .
 
       - name: Run mypy type checking
         run: |
-          uv run mypy .
+          uv run --group typing mypy .
 
   security-check:
     runs-on: ubuntu-latest
