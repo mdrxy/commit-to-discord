@@ -15,7 +15,7 @@ RUN uv sync
 
 COPY . .
 
-# Healthcheck to verify the commit_watcher process is running
+# Verify the commit_watcher process is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f commit_watcher.py || exit 1
 
