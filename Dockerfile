@@ -19,4 +19,4 @@ COPY . .
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f commit_watcher.py || exit 1
 
-CMD ["python", "-u", "commit_watcher.py"]
+CMD ["uv", "run", "python", "-u", "commit_watcher.py"]
