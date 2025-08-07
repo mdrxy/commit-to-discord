@@ -59,18 +59,39 @@ clean: stop
 		echo "No image found with name $(IMAGE_NAME)."; \
 	fi
 
+# Development Dependencies
+install-dev:
+	uv sync --group dev
+
+# Development Setup
+setup-dev: install-dev pre-commit-install
+
 # Linting and Formatting
 lint:
-	ruff check .
+	uv run --group lint ruff check .
 
 lint-fix:
-	ruff check . --fix
+	uv run --group lint ruff check . --fix
 
 lint-fix-unsafe:
-	ruff check . --fix --unsafe-fixes
+	uv run --group lint ruff check . --fix --unsafe-fixes
 
 format:
-	ruff format .
+	uv run --group lint ruff format .
 
 format-check:
-	ruff format . --check
+	uv run --group lint ruff format . --check
+
+# Type Checking
+typecheck:
+	uv run --group typing mypy .
+
+# Pre-commit
+pre-commit-install:
+	uv run --group dev pre-commit install
+
+pre-commit-run:
+	uv run --group dev pre-commit run --all-files
+
+# Combined Quality Checks
+check-all: lint typecheck format-check
