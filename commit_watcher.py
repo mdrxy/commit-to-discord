@@ -199,6 +199,61 @@ if GITHUB_TOKEN:
 
 LAST_COMMITS_FILE = Path("last_commits.json")
 
+# Retry configuration
+MAX_RETRIES = 3
+INITIAL_BACKOFF_SECONDS = 1.0
+BACKOFF_MULTIPLIER = 2.0
+
+
+def request_with_retry(
+    method: Literal["get", "post", "put", "patch", "delete", "head", "options"],
+    url: str,
+    **kwargs: Any,  # noqa: ANN401
+) -> Optional[requests.Response]:
+    """Make an HTTP request with exponential backoff retry.
+
+    Args:
+        method: The HTTP method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, head,
+            options).
+        url: The URL to request.
+        **kwargs: Additional arguments to pass to requests.
+
+    Returns:
+        The response object, or `None` if all retries failed.
+
+    """
+    backoff = INITIAL_BACKOFF_SECONDS
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            return requests.request(method, url, timeout=10, **kwargs)
+        except (  # noqa: PERF203
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        ) as e:
+            if attempt < MAX_RETRIES - 1:
+                logger.warning(
+                    "Request to %s failed (attempt %d/%d): %s. Retrying in %.1fs...",
+                    url,
+                    attempt + 1,
+                    MAX_RETRIES,
+                    type(e).__name__,
+                    backoff,
+                )
+                time.sleep(backoff)
+                backoff *= BACKOFF_MULTIPLIER
+            else:
+                logger.exception(
+                    "Request to %s failed after %d attempts",
+                    url,
+                    MAX_RETRIES,
+                )
+        except requests.exceptions.RequestException:
+            logger.exception("Request to %s failed with non-retryable error", url)
+            return None
+
+    return None
+
 
 def get_avatar_url(commit: Commit) -> Optional[str]:
     """Fetch avatar URL. Fallback to Gravatar based on email if needed.
@@ -243,11 +298,10 @@ def get_branches(repo: Repository) -> list[Branch]:
 
     """
     branches_url = f"https://api.github.com/repos/{repo.owner}/{repo.name}/branches"
-    try:
-        response = requests.get(branches_url, headers=HEADERS, timeout=10)
-    except requests.exceptions.RequestException:
-        logger.exception(
-            "Error fetching branches for %s/%s",
+    response = request_with_retry("get", branches_url, headers=HEADERS)
+    if response is None:
+        logger.error(
+            "Failed to fetch branches for %s/%s after retries",
             repo.owner,
             repo.name,
         )
@@ -284,8 +338,24 @@ def get_commits_for_branch(
 
     """
     url = f"https://api.github.com/repos/{repo.owner}/{repo.name}/commits?sha={branch_name}"
-    response = requests.get(url, headers=HEADERS, timeout=10)
-    response.raise_for_status()
+    response = request_with_retry("get", url, headers=HEADERS)
+    if response is None:
+        logger.error(
+            "Failed to fetch commits for %s/%s branch %s after retries",
+            repo.owner,
+            repo.name,
+            branch_name,
+        )
+        return []
+    if response.status_code != STATUS_OK:
+        logger.error(
+            "Error fetching commits for %s/%s branch %s: %s",
+            repo.owner,
+            repo.name,
+            branch_name,
+            response.text,
+        )
+        return []
     commits: list[Commit] = response.json()
     for commit in commits:
         commit["id"] = commit["sha"]
@@ -441,15 +511,19 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
     if not DISCORD_WEBHOOK_URL:
         logger.error("DISCORD_WEBHOOK_URL is not set. Cannot send message to Discord.")
         return
-    try:
-        response = requests.post(
-            DISCORD_WEBHOOK_URL,
-            json=payload,
-            headers=headers,
-            timeout=10,
+    response = request_with_retry(
+        "post",
+        DISCORD_WEBHOOK_URL,
+        json=payload,
+        headers=headers,
+    )
+    if response is None:
+        logger.error(
+            "Failed to post to Discord after retries for %s branch %s. Payload: %s",
+            repo,
+            branch_name,
+            json.dumps(payload, indent=2),
         )
-    except requests.exceptions.RequestException:
-        logger.exception("Error posting aggregated message to Discord")
         return
     if response.status_code == STATUS_NO_CONTENT:
         logger.info(
@@ -459,8 +533,10 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
         )
     else:
         logger.error(
-            "Failed to post aggregated message to Discord: `%s`",
+            "Failed to post to Discord (status %d): `%s`. Payload: %s",
+            response.status_code,
             response.text,
+            json.dumps(payload, indent=2),
         )
 
 
