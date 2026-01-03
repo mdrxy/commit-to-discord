@@ -1,10 +1,10 @@
 """Monitors GitHub repositories for new commits, sends Discord webhooks.
 
-Periodically checks specified GitHub repositories and their branches for
-new commits. When new commits are detected, it formats them into a
-message that mimics Discord's native embed style for commits and sends
-it to a configured Discord webhook. Tracks the last seen commit for
-each branch to prevent duplicate notifications.
+Periodically checks specified GitHub repositories and their branches for new commits.
+
+When new commits are detected, it formats them into a message that mimics Discord's
+native embed style for commits and sends it to a configured Discord webhook. Tracks the
+last seen commit for each branch to prevent duplicate notifications.
 """
 
 from __future__ import annotations
