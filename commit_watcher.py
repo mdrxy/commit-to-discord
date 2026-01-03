@@ -400,9 +400,12 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
     )
 
     # Use the first commit's info for the embed author
+    author_url = ""
+    if first_commit.get("author") and first_commit["author"].get("html_url"):
+        author_url = first_commit["author"]["html_url"]
     embed_author = {
         "name": first_commit["author_username"],
-        "url": first_commit["author"]["html_url"] or "",
+        "url": author_url,
         "icon_url": first_commit["avatar_url"] or "",
     }
 
