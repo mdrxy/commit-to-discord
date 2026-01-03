@@ -5,15 +5,6 @@ new commits. When new commits are detected, it formats them into a
 message that mimics Discord's native embed style for commits and sends
 it to a configured Discord webhook. Tracks the last seen commit for
 each branch to prevent duplicate notifications.
-
-Author: Mason Daugherty <@mdrxy>
-Version: 2.1.0
-Last Modified: 2025-05-29
-
-Changelog:
-    - 1.0.0 (2025-03-29): Initial release.
-    - 2.0.0 (2025-04-14): Added support for multiple repositories.
-    - 2.1.0 (2025-05-29): Handle shutdown signals gracefully.
 """
 
 from __future__ import annotations
