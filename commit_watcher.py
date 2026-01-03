@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
 import requests
 from dotenv import load_dotenv
@@ -51,14 +51,11 @@ TRUNCATE_LENGTH = 52
 
 
 def handle_shutdown(_signum: int, _frame: Optional[FrameType]) -> None:
-    """Gracefully handle shutdown signals (SIGTERM, SIGINT).
+    """Gracefully handle shutdown signals (`SIGTERM`, `SIGINT`).
 
-    Parameters
-    ----------
-    _signum : int
-        The signal number.
-    _frame : Optional[FrameType]
-        The current stack frame.
+    Args:
+        _signum: The signal number.
+        _frame: The current stack frame.
 
     """
     shutdown_event.set()
@@ -89,9 +86,9 @@ class Repository:
     """Represents a GitHub repository.
 
     Attributes:
-    - owner (str): The owner of the repository.
-    - name (str): The name of the repository.
-    - api_url (str): The API URL for fetching commits.
+        owner: The owner of the repository.
+        name: The name of the repository.
+        api_url: The API URL for fetching commits.
 
     """
 
@@ -103,10 +100,8 @@ class Repository:
     def from_repo_string(cls, repo_string: str) -> Repository:
         """Create a Repository instance from owner/repo string.
 
-        Parameters
-        ----------
-        repo_string : str
-            The repository string in the format "owner/repo".
+        Args:
+            repo_string: The repository string in the format `'owner/repo'`.
 
         """
         owner, name = repo_string.split("/")
@@ -118,16 +113,12 @@ def parse_blacklist_patterns(blacklist_string: str) -> dict[str, list[str]]:
     """Parse the branch blacklist string into a dictionary.
 
     The blacklist string can contain global patterns or patterns specific
-    to a repository, in the format "owner/repo:pattern".
+    to a repository, in the format `'owner/repo:pattern'`.
 
-    Parameters
-    ----------
-    blacklist_string : str
-        The comma-separated blacklist string.
+    Args:
+        blacklist_string: The comma-separated blacklist string.
 
-    Returns
-    -------
-    dict[str, list[str]]
+    Returns:
         A dictionary mapping repositories to their blacklist patterns.
 
     """
@@ -155,19 +146,13 @@ def is_branch_blacklisted(
 ) -> bool:
     """Check if a branch is blacklisted.
 
-    Parameters
-    ----------
-    repo_key : str
-        The repository key (e.g., "owner/repo").
-    branch_name : str
-        The name of the branch.
-    blacklist_patterns : dict[str, list[str]]
-        The blacklist patterns.
+    Args:
+        repo_key: The repository key (e.g., `'owner/repo'`).
+        branch_name: The name of the branch.
+        blacklist_patterns: The blacklist patterns.
 
-    Returns
-    -------
-    bool
-        True if the branch is blacklisted, False otherwise.
+    Returns:
+        `True` if the branch is blacklisted, `False` otherwise.
 
     """
     # Check for global blacklists
@@ -256,16 +241,14 @@ def request_with_retry(
 
 
 def get_avatar_url(commit: Commit) -> Optional[str]:
-    """Fetch avatar URL. Fallback to Gravatar based on email if needed.
+    """Fetch avatar URL.
 
-    Parameters
-    ----------
-    commit : Commit
-        The commit data dictionary.
+    Fallback to Gravatar based on email if needed.
 
-    Returns
-    -------
-    Optional[str]
+    Args:
+        commit: The commit data dictionary.
+
+    Returns:
         The avatar URL or Gravatar URL.
 
     """
@@ -286,14 +269,10 @@ def get_avatar_url(commit: Commit) -> Optional[str]:
 def get_branches(repo: Repository) -> list[Branch]:
     """Fetch list of branches for a repository.
 
-    Parameters
-    ----------
-    repo : Repository
-        The repository object.
+    Args:
+        repo: The repository object.
 
-    Returns
-    -------
-    list[Branch]
+    Returns:
         A list of branches in the repository.
 
     """
@@ -324,17 +303,12 @@ def get_commits_for_branch(
 ) -> list[Commit]:
     """Fetch commits for a given branch in a repository.
 
-    Parameters
-    ----------
-    repo : Repository
-        The repository object.
-    branch_name : str
-        The name of the branch.
+    Args:
+        repo: The repository object.
+        branch_name: The name of the branch.
 
-    Returns
-    -------
-    list[Commit]
-        A list of commits in the branch.
+    Returns:
+        A list of commits in the branch, or empty list on failure.
 
     """
     url = f"https://api.github.com/repos/{repo.owner}/{repo.name}/commits?sha={branch_name}"
@@ -373,9 +347,7 @@ def get_commits_for_branch(
 def load_last_commits() -> dict[str, dict[str, str]]:
     """Load last processed commit IDs per repository and branch.
 
-    Returns
-    -------
-    dict[str, dict[str, str]]
+    Returns:
         A dictionary mapping repository/branch pairs to their last
         processed commit IDs.
 
@@ -390,11 +362,9 @@ def load_last_commits() -> dict[str, dict[str, str]]:
 def save_last_commits(last_commits: dict[str, dict[str, str]]) -> None:
     """Save last processed commit IDs per repository and branch.
 
-    Parameters
-    ----------
-    last_commits : dict[str, dict[str, str]]
-        A dictionary mapping repository/branch pairs to their last
-        processed commit IDs.
+    Args:
+        last_commits: A dictionary mapping repository/branch pairs to their
+            last processed commit IDs.
 
     """
     with LAST_COMMITS_FILE.open("w", encoding="utf-8") as f:
@@ -435,16 +405,11 @@ def send_aggregated_to_discord(  # pylint: disable=too-many-locals
 ) -> None:
     """Send a Discord message containing all new commits for a branch.
 
-    Parameters
-    ----------
-    commits : list[Commit]
-        A list of commit dictionaries.
-    repo : str
-        The repository name.
-    branch_name : str
-        The name of the branch.
-    old_commit_id : str
-        The commit ID before the new commits.
+    Args:
+        commits: A list of commit dictionaries.
+        repo: The repository name.
+        branch_name: The name of the branch.
+        old_commit_id: The commit ID before the new commits.
 
     """
     count = len(commits)
